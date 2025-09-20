@@ -17,9 +17,6 @@ public struct DatabaseConfiguration {
     /// Retry settings
     public let retrySettings: RetrySettings
     
-    /// Analytics settings
-    public let analyticsSettings: AnalyticsSettings
-    
     /// Migration settings
     public let migrationSettings: MigrationSettings
     
@@ -29,7 +26,6 @@ public struct DatabaseConfiguration {
         enableOfflinePersistence: Bool = false,
         cacheSettings: CacheSettings = CacheSettings(),
         retrySettings: RetrySettings = RetrySettings(),
-        analyticsSettings: AnalyticsSettings = AnalyticsSettings(),
         migrationSettings: MigrationSettings = MigrationSettings()
     ) {
         self.collections = collections
@@ -37,8 +33,58 @@ public struct DatabaseConfiguration {
         self.enableOfflinePersistence = enableOfflinePersistence
         self.cacheSettings = cacheSettings
         self.retrySettings = retrySettings
-        self.analyticsSettings = analyticsSettings
         self.migrationSettings = migrationSettings
+    }
+    
+    /// Convenience initializer with sensible defaults for most use cases
+    public static func `default`(
+        enableOfflinePersistence: Bool = false,
+        enableQueryCaching: Bool = true,
+        maxRetries: Int = 3
+    ) -> DatabaseConfiguration {
+        return DatabaseConfiguration(
+            collections: [:],
+            defaultSecurityRules: SecurityRules(),
+            enableOfflinePersistence: enableOfflinePersistence,
+            cacheSettings: CacheSettings(
+                sizeBytes: 50 * 1024 * 1024, // 50MB
+                ttlSeconds: 300, // 5 minutes
+                enableQueryCaching: enableQueryCaching
+            ),
+            retrySettings: RetrySettings(
+                maxRetries: maxRetries,
+                initialDelay: 1.0,
+                maxDelay: 30.0,
+                backoffMultiplier: 2.0
+            ),
+            migrationSettings: MigrationSettings()
+        )
+    }
+    
+    /// Convenience initializer with collections and sensible defaults
+    public static func withCollections(
+        _ collections: [String: CollectionConfiguration],
+        enableOfflinePersistence: Bool = false,
+        enableQueryCaching: Bool = true,
+        maxRetries: Int = 3
+    ) -> DatabaseConfiguration {
+        return DatabaseConfiguration(
+            collections: collections,
+            defaultSecurityRules: SecurityRules(),
+            enableOfflinePersistence: enableOfflinePersistence,
+            cacheSettings: CacheSettings(
+                sizeBytes: 50 * 1024 * 1024, // 50MB
+                ttlSeconds: 300, // 5 minutes
+                enableQueryCaching: enableQueryCaching
+            ),
+            retrySettings: RetrySettings(
+                maxRetries: maxRetries,
+                initialDelay: 1.0,
+                maxDelay: 30.0,
+                backoffMultiplier: 2.0
+            ),
+            migrationSettings: MigrationSettings()
+        )
     }
 }
 
@@ -152,33 +198,6 @@ public struct RetrySettings {
         self.initialDelay = initialDelay
         self.maxDelay = maxDelay
         self.backoffMultiplier = backoffMultiplier
-    }
-}
-
-/// Analytics settings
-public struct AnalyticsSettings {
-    /// Enable query performance tracking
-    public let enableQueryTracking: Bool
-    
-    /// Enable error tracking
-    public let enableErrorTracking: Bool
-    
-    /// Enable operation tracking
-    public let enableOperationTracking: Bool
-    
-    /// Custom analytics handler
-    public let analyticsHandler: ((AnalyticsEvent) -> Void)?
-    
-    public init(
-        enableQueryTracking: Bool = true,
-        enableErrorTracking: Bool = true,
-        enableOperationTracking: Bool = true,
-        analyticsHandler: ((AnalyticsEvent) -> Void)? = nil
-    ) {
-        self.enableQueryTracking = enableQueryTracking
-        self.enableErrorTracking = enableErrorTracking
-        self.enableOperationTracking = enableOperationTracking
-        self.analyticsHandler = analyticsHandler
     }
 }
 
@@ -307,23 +326,5 @@ public struct MigrationHandler {
         self.fromVersion = fromVersion
         self.toVersion = toVersion
         self.migrate = migrate
-    }
-}
-
-/// Analytics event
-public struct AnalyticsEvent {
-    /// Event name
-    public let name: String
-    
-    /// Event parameters
-    public let parameters: [String: Any]
-    
-    /// Timestamp
-    public let timestamp: Date
-    
-    public init(name: String, parameters: [String: Any] = [:], timestamp: Date = Date()) {
-        self.name = name
-        self.parameters = parameters
-        self.timestamp = timestamp
     }
 }

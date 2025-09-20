@@ -202,8 +202,8 @@ public class QueryBuilder<T: DatabaseModel> {
     
     // MARK: - Internal Properties
     
-    internal var query: Query {
-        return Query(
+    internal var query: DatabaseQuery {
+        return DatabaseQuery(
             collection: collection,
             whereClauses: whereClauses,
             orderBy: orderBy,
@@ -242,8 +242,8 @@ public enum WhereOperator {
     case notIn
 }
 
-/// Query representation
-public struct Query {
+/// Database query representation
+public struct DatabaseQuery {
     let collection: String
     let whereClauses: [WhereClause]
     let orderBy: [(String, OrderDirection)]

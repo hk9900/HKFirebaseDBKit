@@ -11,9 +11,9 @@ A powerful, generic Swift package for Firebase Firestore database operations wit
 - ✅ **Data Validation** - Built-in validation with custom rules
 - 🔧 **Data Transformation** - Automatic data transformation and migration
 - 🛡️ **Security & Access Control** - Configurable security rules and permissions
-- 📈 **Analytics Integration** - Built-in hooks for performance monitoring
 - 🔄 **Migration Support** - Schema versioning and data migration
 - ⚡ **Error Recovery** - Automatic retry mechanisms and error handling
+- 🎯 **Simplified Configuration** - Easy setup with sensible defaults
 
 ## Installation
 
@@ -43,26 +43,37 @@ import HKFirebaseDBKit
 // Configure Firebase
 FirebaseApp.configure()
 
-// Configure HKFirebaseDBKit
-let config = DatabaseConfiguration(
-    collections: [
-        "users": CollectionConfiguration(
-            name: "users",
-            validationRules: ValidationRules(
-                requiredFields: ["email", "name"],
-                fieldValidators: [
-                    "email": FieldValidator(type: .email),
-                    "name": FieldValidator(type: .minLength(2))
-                ]
-            )
+// Configure HKFirebaseDBKit with simplified configuration
+let config = DatabaseConfiguration.withCollections([
+    "users": CollectionConfiguration(
+        name: "users",
+        validationRules: ValidationRules(
+            requiredFields: ["email", "name"],
+            fieldValidators: [
+                "email": FieldValidator(type: .email),
+                "name": FieldValidator(type: .minLength(2))
+            ]
         )
-    ]
+    )
+], enableOfflinePersistence: true, enableQueryCaching: true, maxRetries: 3)
+
+HKFirebaseDBKit.configure(config)
+```
+
+### 2. Simple Configuration (No Collections)
+
+```swift
+// For simple use cases without collection-specific configuration
+let config = DatabaseConfiguration.default(
+    enableOfflinePersistence: false,
+    enableQueryCaching: true,
+    maxRetries: 3
 )
 
 HKFirebaseDBKit.configure(config)
 ```
 
-### 2. Define Your Models
+### 3. Define Your Models
 
 ```swift
 import HKFirebaseDBKit
@@ -78,6 +89,9 @@ struct User: DatabaseModel, TimestampedModel, ValidatableModel {
         guard !email.isEmpty else {
             throw ValidationError.emptyField("email")
         }
+        guard email.contains("@") else {
+            throw ValidationError.invalidEmail(email)
+        }
         guard !name.isEmpty else {
             throw ValidationError.emptyField("name")
         }
@@ -85,7 +99,7 @@ struct User: DatabaseModel, TimestampedModel, ValidatableModel {
 }
 ```
 
-### 3. Basic CRUD Operations
+### 4. Basic CRUD Operations
 
 ```swift
 // Create
@@ -104,7 +118,7 @@ let savedUser = try await HKFirebaseDBKit.update(updatedUser, in: "users")
 try await HKFirebaseDBKit.delete(id: "user-id", from: "users")
 ```
 
-### 4. Query Operations
+### 5. Query Operations
 
 ```swift
 // List all users
@@ -122,12 +136,12 @@ let limitedUsers = try await HKFirebaseDBKit.list(
 let userCount = try await HKFirebaseDBKit.count(in: "users")
 ```
 
-### 5. Fluent Query Builder
+### 6. Fluent Query Builder
 
 ```swift
 // Simple queries
 let activeUsers = try await HKFirebaseDBKit
-    .collection(User.self, "users")
+    .collection("users")
     .where("isActive", isEqualTo: true)
     .where("createdAt", isGreaterThan: Date().addingTimeInterval(-86400))
     .orderBy("name", direction: .ascending)
@@ -136,14 +150,14 @@ let activeUsers = try await HKFirebaseDBKit
 
 // Complex queries
 let recentUsers = try await HKFirebaseDBKit
-    .collection(User.self, "users")
+    .collection("users")
     .where("email", in: ["admin@example.com", "user@example.com"])
     .where("createdAt", isGreaterThan: Date().addingTimeInterval(-604800))
     .orderBy("createdAt", direction: .descending)
     .get()
 ```
 
-### 6. Real-time Subscriptions
+### 7. Real-time Subscriptions
 
 ```swift
 // Subscribe to collection updates
@@ -171,7 +185,7 @@ let documentSubscription = try await HKFirebaseDBKit.subscribe(
 subscription.cancel()
 ```
 
-### 7. Batch Operations
+### 8. Batch Operations
 
 ```swift
 // Create multiple users
@@ -188,7 +202,7 @@ let updatedUsers = try await HKFirebaseDBKit.updateBatch(users, in: "users")
 try await HKFirebaseDBKit.deleteBatch(ids: ["user1", "user2"], from: "users")
 ```
 
-### 8. Transactions
+### 9. Transactions
 
 ```swift
 // Execute operations in a transaction
@@ -255,18 +269,43 @@ struct User: DatabaseModel, TransformableModel {
 }
 ```
 
-### Analytics Integration
+### Configuration Options
 
 ```swift
+// Full configuration with all options
 let config = DatabaseConfiguration(
-    analyticsSettings: AnalyticsSettings(
-        enableQueryTracking: true,
-        enableErrorTracking: true,
-        enableOperationTracking: true,
-        analyticsHandler: { event in
-            // Send to your analytics service
-            Analytics.track(event.name, parameters: event.parameters)
-        }
+    collections: [
+        "users": CollectionConfiguration(
+            name: "users",
+            validationRules: ValidationRules(
+                requiredFields: ["email", "name"],
+                fieldValidators: [
+                    "email": FieldValidator(type: .email),
+                    "name": FieldValidator(type: .minLength(2))
+                ]
+            )
+        )
+    ],
+    defaultSecurityRules: SecurityRules(
+        read: "auth != null",
+        write: "auth != null",
+        delete: "auth != null"
+    ),
+    enableOfflinePersistence: true,
+    cacheSettings: CacheSettings(
+        sizeBytes: 100 * 1024 * 1024, // 100MB
+        ttlSeconds: 300, // 5 minutes
+        enableQueryCaching: true
+    ),
+    retrySettings: RetrySettings(
+        maxRetries: 3,
+        initialDelay: 1.0,
+        maxDelay: 30.0,
+        backoffMultiplier: 2.0
+    ),
+    migrationSettings: MigrationSettings(
+        currentVersion: "1.0.0",
+        enableAutoMigration: true
     )
 )
 ```
@@ -313,6 +352,12 @@ If you encounter any issues or have questions, please open an issue on GitHub.
 
 ## Changelog
 
+### Version 1.1.0
+- Added simplified configuration initializers
+- Removed analytics system (moved to separate HKAnalyticsKit)
+- Improved error handling and performance
+- Enhanced documentation and examples
+
 ### Version 1.0.0
 - Initial release
 - Generic CRUD operations
@@ -320,5 +365,4 @@ If you encounter any issues or have questions, please open an issue on GitHub.
 - Real-time subscriptions
 - Batch operations and transactions
 - Data validation and transformation
-- Analytics integration
 - Error recovery and retry mechanisms

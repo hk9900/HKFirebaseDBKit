@@ -75,27 +75,31 @@ final class HKFirebaseDBKitTests: XCTestCase {
     }
     
     func testDatabaseConfiguration() throws {
-        let config = DatabaseConfiguration(
-            collections: [
-                "users": CollectionConfiguration(
-                    name: "users",
-                    validationRules: ValidationRules(
-                        requiredFields: ["name", "email"],
-                        fieldValidators: [
-                            "email": FieldValidator(type: .email)
-                        ]
-                    )
+        let config = DatabaseConfiguration.withCollections([
+            "users": CollectionConfiguration(
+                name: "users",
+                validationRules: ValidationRules(
+                    requiredFields: ["name", "email"],
+                    fieldValidators: [
+                        "email": FieldValidator(type: .email)
+                    ]
                 )
-            ],
-            enableOfflinePersistence: true,
-            cacheSettings: CacheSettings(sizeBytes: 50 * 1024 * 1024),
-            retrySettings: RetrySettings(maxRetries: 5)
-        )
+            )
+        ], enableOfflinePersistence: true, enableQueryCaching: true, maxRetries: 5)
         
         XCTAssertEqual(config.collections.count, 1)
         XCTAssertTrue(config.enableOfflinePersistence)
         XCTAssertEqual(config.cacheSettings.sizeBytes, 50 * 1024 * 1024)
         XCTAssertEqual(config.retrySettings.maxRetries, 5)
+    }
+    
+    func testDefaultDatabaseConfiguration() throws {
+        let config = DatabaseConfiguration.default(enableOfflinePersistence: true, enableQueryCaching: false, maxRetries: 2)
+        
+        XCTAssertEqual(config.collections.count, 0)
+        XCTAssertTrue(config.enableOfflinePersistence)
+        XCTAssertFalse(config.cacheSettings.enableQueryCaching)
+        XCTAssertEqual(config.retrySettings.maxRetries, 2)
     }
 }
 

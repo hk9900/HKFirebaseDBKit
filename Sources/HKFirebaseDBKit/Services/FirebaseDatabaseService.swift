@@ -51,10 +51,7 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
             let docRef = try await collectionRef.addDocument(data: finalData)
             
             // Create updated item with generated ID
-            var updatedItem = transformedItem
-            if let id = docRef.documentID as? String {
-                updatedItem = updateItemId(updatedItem, with: id)
-            }
+            let updatedItem = updateItemId(transformedItem, with: docRef.documentID)
             
             // Track analytics
             trackOperation("create", collection: collection, duration: Date().timeIntervalSince(startTime))
@@ -184,7 +181,7 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
         let startTime = Date()
         
         do {
-            var query = firestore.collection(collection)
+            var query: FirebaseFirestore.Query = firestore.collection(collection)
             
             // Apply limit
             if let limit = limit {
@@ -252,10 +249,7 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
                 batch.setData(finalData, forDocument: docRef)
                 
                 // Create updated item with generated ID
-                var updatedItem = transformedItem
-                if let id = docRef.documentID as? String {
-                    updatedItem = updateItemId(updatedItem, with: id)
-                }
+                let updatedItem = updateItemId(transformedItem, with: docRef.documentID)
                 createdItems.append(updatedItem)
             }
             
@@ -479,11 +473,47 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
     }
     
     private func decodeFromDictionary<T: DatabaseModel>(_ data: [String: Any], to type: T.Type) throws -> T {
-        let jsonData = try JSONSerialization.data(withJSONObject: data)
+        // Convert Firestore data to JSON-serializable format
+        let jsonData = try convertFirestoreDataToJSON(data)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
         
         return try decoder.decode(type, from: jsonData)
+    }
+    
+    private func convertFirestoreDataToJSON(_ data: [String: Any]) throws -> Data {
+        let convertedData = convertFirestoreValues(data)
+        return try JSONSerialization.data(withJSONObject: convertedData)
+    }
+    
+    private func convertFirestoreValues(_ data: [String: Any]) -> [String: Any] {
+        var converted: [String: Any] = [:]
+        
+        for (key, value) in data {
+            if let timestamp = value as? Timestamp {
+                // Convert FIRTimestamp to seconds since 1970
+                converted[key] = timestamp.seconds
+            } else if let array = value as? [Any] {
+                // Recursively convert arrays
+                converted[key] = array.map { item in
+                    if let dict = item as? [String: Any] {
+                        return convertFirestoreValues(dict) as Any
+                    } else if let timestamp = item as? Timestamp {
+                        return timestamp.seconds as Any
+                    } else {
+                        return item
+                    }
+                }
+            } else if let dict = value as? [String: Any] {
+                // Recursively convert nested dictionaries
+                converted[key] = convertFirestoreValues(dict)
+            } else {
+                // Keep other values as-is
+                converted[key] = value
+            }
+        }
+        
+        return converted
     }
     
     private func updateItemId<T: DatabaseModel>(_ item: T, with id: String) -> T {
@@ -493,8 +523,8 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
     }
     
     private func mapFirestoreError(_ error: Error) -> DatabaseError {
-        if let firestoreError = error as? NSError {
-            switch firestoreError.code {
+        let firestoreError = error as NSError
+        switch firestoreError.code {
             case 7: // PERMISSION_DENIED
                 return .permissionDenied(firestoreError.localizedDescription)
             case 8: // UNAVAILABLE
@@ -506,38 +536,16 @@ public final class FirebaseDatabaseService: DatabaseServiceProtocol {
             default:
                 return .firestoreError(firestoreError.localizedDescription)
             }
-        }
-        return .unknown(error.localizedDescription)
     }
     
     private func trackOperation(_ operation: String, collection: String, duration: TimeInterval) {
-        guard configuration.analyticsSettings.enableOperationTracking else { return }
-        
-        let event = AnalyticsEvent(
-            name: "database_operation",
-            parameters: [
-                "operation": operation,
-                "collection": collection,
-                "duration": duration
-            ]
-        )
-        
-        configuration.analyticsSettings.analyticsHandler?(event)
+        // Analytics removed - will be handled by HKAnalyticsKit
+        print("📊 Database Operation: \(operation) on \(collection) took \(duration)s")
     }
     
     private func trackError(_ operation: String, collection: String, error: Error) {
-        guard configuration.analyticsSettings.enableErrorTracking else { return }
-        
-        let event = AnalyticsEvent(
-            name: "database_error",
-            parameters: [
-                "operation": operation,
-                "collection": collection,
-                "error": error.localizedDescription
-            ]
-        )
-        
-        configuration.analyticsSettings.analyticsHandler?(event)
+        // Analytics removed - will be handled by HKAnalyticsKit
+        print("📊 Database Error: \(operation) on \(collection) - \(error.localizedDescription)")
     }
 }
 
